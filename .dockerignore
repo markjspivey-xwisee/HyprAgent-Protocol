@@ -1,0 +1,16 @@
+node_modules
+dist
+.git
+.github
+*.md
+*.log
+.env
+.env.local
+.env.production
+tsconfig.tsbuildinfo
+packages/*/tsconfig.tsbuildinfo
+packages/*/dist
+tests
+coverage
+.vscode
+.idea

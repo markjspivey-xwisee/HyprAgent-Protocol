@@ -1,0 +1,12 @@
+# Railway deployment configuration for HyprCAT Gateway Server
+# Deploy: connect your GitHub repo on railway.app
+# Docs: https://docs.railway.app/reference/config-as-code
+
+[build]
+dockerfilePath = "docker/Dockerfile.server"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 5
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
