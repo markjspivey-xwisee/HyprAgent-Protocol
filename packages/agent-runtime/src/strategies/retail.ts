@@ -39,7 +39,7 @@ export class RetailStrategy implements AgentStrategy {
           const memberOps = m["hydra:operation"] as HydraOperation[] | undefined;
           if (memberOps) {
             const buyOp = memberOps.find((op) => {
-              const types = Array.isArray(op["@type"]) ? op["@type"] : [op["@type"]];
+              const types: string[] = Array.isArray(op["@type"]) ? op["@type"] : [op["@type"]];
               return types.includes("schema:BuyAction");
             });
 
@@ -76,7 +76,7 @@ export class RetailStrategy implements AgentStrategy {
     const price = r["schema:price"] as number;
     if (price && price <= this.maxPrice) {
       const buyOp = operations.find((op) => {
-        const types = Array.isArray(op["@type"]) ? op["@type"] : [op["@type"]];
+        const types: string[] = Array.isArray(op["@type"]) ? op["@type"] : [op["@type"]];
         return types.includes("schema:BuyAction");
       });
 

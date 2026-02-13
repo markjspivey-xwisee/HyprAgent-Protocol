@@ -198,7 +198,7 @@ export class HyprCATWallet {
 
   /** Get active subscriptions */
   getSubscriptions(): SubscriptionRecord[] {
-    return this.state.subscriptions.filter((s) => s.active);
+    return this.state.subscriptions.filter((s: SubscriptionRecord) => s.active);
   }
 
   /** Add a subscription */
@@ -214,7 +214,7 @@ export class HyprCATWallet {
 
   /** Cancel a subscription */
   cancelSubscription(subscriptionId: string): boolean {
-    const sub = this.state.subscriptions.find((s) => s.id === subscriptionId);
+    const sub = this.state.subscriptions.find((s: SubscriptionRecord) => s.id === subscriptionId);
     if (!sub) return false;
     sub.active = false;
     this.emit("subscription", { action: "cancelled", subscription: sub });

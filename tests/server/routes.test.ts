@@ -1,17 +1,23 @@
 /**
- * Tests for @hyprcat/server routes
+ * Tests for @hyprcat/server routes.
+ * Uses real HTTP requests via Node's http module.
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
-import { createApp } from "@hyprcat/server";
-import type { ServerConfig } from "@hyprcat/server";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import http from "node:http";
+// Import app factory directly (not index.ts which auto-starts the server)
+import { createApp } from "../../packages/server/src/app.js";
+import type { ServerConfig } from "../../packages/server/src/config.js";
 
-// Helper to make requests to the test app
-async function createTestApp() {
+let server: http.Server;
+const TEST_PORT = 19876;
+const BASE = `http://localhost:${TEST_PORT}`;
+
+async function createTestServer() {
   const config: ServerConfig = {
-    port: 0,
+    port: TEST_PORT,
     host: "localhost",
-    baseUrl: "http://localhost:3001",
+    baseUrl: BASE,
     corsOrigins: ["*"],
     rateLimitWindowMs: 60000,
     rateLimitMax: 1000,
@@ -22,186 +28,164 @@ async function createTestApp() {
     nodeEnv: "test",
   };
 
-  return createApp(config);
+  const { app } = await createApp(config);
+  return new Promise<http.Server>((resolve) => {
+    const s = app.listen(TEST_PORT, "localhost", () => resolve(s));
+  });
 }
+
+async function request(
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<{ status: number; body: any }> {
+  return new Promise((resolve, reject) => {
+    const url = new URL(path, BASE);
+    const bodyStr = body ? JSON.stringify(body) : undefined;
+
+    const req = http.request(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname + url.search,
+        method,
+        headers: {
+          Accept: "application/ld+json, application/json",
+          "Content-Type": "application/ld+json",
+          ...(bodyStr ? { "Content-Length": Buffer.byteLength(bodyStr) } : {}),
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          let parsed: any = {};
+          try {
+            parsed = JSON.parse(data);
+          } catch {}
+          resolve({ status: res.statusCode || 500, body: parsed });
+        });
+      }
+    );
+
+    req.on("error", reject);
+    if (bodyStr) req.write(bodyStr);
+    req.end();
+  });
+}
+
+beforeAll(async () => {
+  server = await createTestServer();
+});
+
+afterAll(async () => {
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+});
 
 describe("Health Routes", () => {
   it("should return healthy status", async () => {
-    const { app } = await createTestApp();
-
-    // Simulate request using supertest-like approach
-    const response = await simulateRequest(app, "GET", "/health");
-    expect(response.status).toBe(200);
-    expect(response.body.status).toBe("healthy");
-    expect(response.body.version).toBe("1.0.0");
+    const res = await request("GET", "/health");
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("healthy");
+    expect(res.body.version).toBe("1.0.0");
   });
 
   it("should return readiness", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/ready");
-    expect(response.status).toBe(200);
-    expect(response.body.ready).toBe(true);
+    const res = await request("GET", "/ready");
+    expect(res.status).toBe(200);
+    expect(res.body.ready).toBe(true);
   });
 });
 
 describe("Catalog Routes", () => {
   it("should serve well-known endpoint", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/.well-known/hyprcat");
-    expect(response.status).toBe(200);
-    expect(response.body["@type"]).toBe("hypr:ServiceDescription");
-    expect(response.body["hypr:version"]).toBe("1.0");
+    const res = await request("GET", "/.well-known/hyprcat");
+    expect(res.status).toBe(200);
+    expect(res.body["@type"]).toBe("hypr:ServiceDescription");
+    expect(res.body["hypr:version"]).toBe("1.0");
   });
 
   it("should serve catalog collection", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/catalog");
-    expect(response.status).toBe(200);
-    expect(response.body["@type"]).toBe("hydra:Collection");
-    expect(response.body["hydra:member"]).toBeDefined();
-    expect(response.body["hydra:totalItems"]).toBeGreaterThan(0);
+    const res = await request("GET", "/catalog");
+    expect(res.status).toBe(200);
+    expect(res.body["@type"]).toBe("hydra:Collection");
+    expect(res.body["hydra:member"]).toBeDefined();
+    expect(res.body["hydra:totalItems"]).toBeGreaterThan(0);
   });
 
   it("should serve prompts collection", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/prompts");
-    expect(response.status).toBe(200);
-    expect(response.body["hydra:member"].length).toBeGreaterThan(0);
+    const res = await request("GET", "/prompts");
+    expect(res.status).toBe(200);
+    expect(res.body["hydra:member"].length).toBeGreaterThan(0);
   });
 });
 
 describe("Resource Routes", () => {
   it("should serve retail node", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/nodes/retail");
-    expect(response.status).toBe(200);
-    expect(response.body["dct:title"]).toContain("Hardware");
+    const res = await request("GET", "/nodes/retail");
+    expect(res.status).toBe(200);
+    expect(res.body["dct:title"]).toContain("Hardware");
   });
 
   it("should serve analytics node", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/nodes/analytics");
-    expect(response.status).toBe(200);
-    expect(response.body["@type"]).toContain("dprod:DataProduct");
+    const res = await request("GET", "/nodes/analytics");
+    expect(res.status).toBe(200);
+    expect(res.body["@type"]).toContain("dprod:DataProduct");
   });
 
   it("should serve LRS node", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/nodes/lrs");
-    expect(response.status).toBe(200);
-    expect(response.body["@type"]).toContain("xapi:LRS");
+    const res = await request("GET", "/nodes/lrs");
+    expect(res.status).toBe(200);
+    expect(res.body["@type"]).toContain("xapi:LRS");
   });
 
   it("should return 404 for unknown resources", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/nodes/nonexistent");
-    expect(response.status).toBe(404);
+    const res = await request("GET", "/nodes/nonexistent");
+    expect(res.status).toBe(404);
   });
 });
 
 describe("Operation Routes", () => {
   it("should require payment for checkout without proof", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "POST", "/operations/checkout", {
+    const res = await request("POST", "/operations/checkout", {
       "schema:price": "100",
     });
-    expect(response.status).toBe(402);
-    expect(response.body["@type"]).toBe("x402:PaymentRequired");
+    expect(res.status).toBe(402);
+    expect(res.body["@type"]).toBe("x402:PaymentRequired");
   });
 
   it("should execute SQL query", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "POST", "/operations/query", {
+    const res = await request("POST", "/operations/query", {
       "schema:query": "SELECT user_id, total_spend FROM analytics",
     });
-    expect(response.status).toBe(200);
-    expect(response.body["@type"]).toBe("czero:ResultSet");
-    expect(response.body["czero:items"]).toBeDefined();
-    expect(response.body["czero:items"].length).toBeGreaterThan(0);
+    expect(res.status).toBe(200);
+    expect(res.body["@type"]).toBe("czero:ResultSet");
+    expect(res.body["czero:items"]).toBeDefined();
+    expect(res.body["czero:items"].length).toBeGreaterThan(0);
   });
 
   it("should reject query without SQL", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "POST", "/operations/query", {});
-    expect(response.status).toBe(422);
+    const res = await request("POST", "/operations/query", {});
+    expect(res.status).toBe(422);
   });
 
   it("should export LRS data", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/operations/lrs/export");
-    expect(response.status).toBe(200);
-    expect(response.body["xapi:statements"]).toBeDefined();
+    const res = await request("GET", "/operations/lrs/export");
+    expect(res.status).toBe(200);
+    expect(res.body["xapi:statements"]).toBeDefined();
   });
 });
 
 describe("Identity Routes", () => {
   it("should issue auth challenge", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "POST", "/auth/challenge");
-    expect(response.status).toBe(200);
-    expect(response.body.nonce).toBeTruthy();
-    expect(response.body.expiresAt).toBeTruthy();
+    const res = await request("POST", "/auth/challenge");
+    expect(res.status).toBe(200);
+    expect(res.body.nonce).toBeTruthy();
+    expect(res.body.expiresAt).toBeTruthy();
   });
 
   it("should reject profile without auth", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/auth/profile");
-    expect(response.status).toBe(401);
+    const res = await request("GET", "/auth/profile");
+    expect(res.status).toBe(401);
   });
 });
-
-describe("Content Negotiation", () => {
-  it("should include HyprCAT version header", async () => {
-    const { app } = await createTestApp();
-    const response = await simulateRequest(app, "GET", "/health");
-    // Headers are set by middleware
-    expect(response.status).toBe(200);
-  });
-});
-
-// Simulate Express request/response (lightweight alternative to supertest)
-async function simulateRequest(
-  app: ReturnType<typeof import("express").default>,
-  method: string,
-  path: string,
-  body?: unknown,
-  headers?: Record<string, string>
-): Promise<{ status: number; body: any; headers: Record<string, string> }> {
-  return new Promise((resolve) => {
-    const responseHeaders: Record<string, string> = {};
-    let responseBody = "";
-    let statusCode = 200;
-
-    const req = {
-      method,
-      url: path,
-      originalUrl: path,
-      path,
-      hostname: "localhost",
-      get: (name: string) => headers?.[name] || (name === "Accept" ? "application/json" : undefined),
-      headers: { accept: "application/json", ...headers },
-      body: body || {},
-      query: Object.fromEntries(new URLSearchParams(path.split("?")[1] || "").entries()),
-      params: {},
-    };
-
-    const res = {
-      status(code: number) { statusCode = code; return this; },
-      json(data: unknown) { responseBody = JSON.stringify(data); this.end(); },
-      setHeader(name: string, value: string) { responseHeaders[name] = value; },
-      getHeader(name: string) { return responseHeaders[name]; },
-      end() {
-        resolve({
-          status: statusCode,
-          body: responseBody ? JSON.parse(responseBody) : {},
-          headers: responseHeaders,
-        });
-      },
-    };
-
-    // Use app handle
-    (app as any).handle(req, res, () => {
-      resolve({ status: 404, body: {}, headers: {} });
-    });
-  });
-}

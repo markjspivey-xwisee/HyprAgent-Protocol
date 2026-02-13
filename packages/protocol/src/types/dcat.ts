@@ -49,8 +49,8 @@ export interface DcatDistribution extends JsonLdNode {
 }
 
 /** DPROD Data Product - a curated data product with defined ports */
-export interface DprodDataProduct extends DcatDataset {
-  "@type": "dprod:DataProduct" | ["dprod:DataProduct", ...string[]];
+export interface DprodDataProduct extends Omit<DcatDataset, "@type"> {
+  "@type": "dprod:DataProduct" | string | string[];
   "dprod:domainInfo": string;
   "dprod:dataProductOwner": DID | string;
   "dprod:inputPort"?: DprodPort[];
@@ -92,8 +92,8 @@ export interface SchemaProduct extends JsonLdNode, WithOperations {
 }
 
 /** Schema.org Store - an ecommerce store node */
-export interface SchemaStore extends HydraCollection {
-  "@type": ["schema:Store", "hydra:Collection"];
+export interface SchemaStore extends Omit<HydraCollection, "@type"> {
+  "@type": ["schema:Store", "hydra:Collection"] | string | string[];
   "dct:title": string;
   "dct:description": string;
 }

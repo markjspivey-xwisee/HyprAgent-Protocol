@@ -27,8 +27,14 @@ jobs:
       - name: Typecheck Protocol
         run: pnpm --filter @hyprcat/protocol typecheck
 
+      - name: Build Protocol (required by dependent packages)
+        run: pnpm --filter @hyprcat/protocol build
+
       - name: Typecheck SDK
         run: pnpm --filter @hyprcat/sdk typecheck
+
+      - name: Build SDK (required by agent-runtime)
+        run: pnpm --filter @hyprcat/sdk build
 
       - name: Typecheck Server
         run: pnpm --filter @hyprcat/server typecheck

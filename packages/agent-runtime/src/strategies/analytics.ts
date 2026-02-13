@@ -25,7 +25,7 @@ export class AnalyticsStrategy implements AgentStrategy {
 
     // Find query operation
     const queryOp = operations.find((op) => {
-      const types = Array.isArray(op["@type"]) ? op["@type"] : [op["@type"]];
+      const types: string[] = Array.isArray(op["@type"]) ? op["@type"] : [op["@type"]];
       return types.includes("czero:QueryAction") || op["hydra:title"]?.toLowerCase().includes("query");
     });
 
@@ -42,7 +42,7 @@ export class AnalyticsStrategy implements AgentStrategy {
 
     // Find download/export operation
     const downloadOp = operations.find((op) => {
-      const types = Array.isArray(op["@type"]) ? op["@type"] : [op["@type"]];
+      const types: string[] = Array.isArray(op["@type"]) ? op["@type"] : [op["@type"]];
       return types.includes("schema:DownloadAction") || op["hydra:title"]?.toLowerCase().includes("export");
     });
 

@@ -203,7 +203,7 @@ export class HyprCATClient {
         const validation = validateInput(input as Record<string, unknown>, properties);
         if (!validation.valid) {
           throw new HyprCATError(
-            `Input validation failed: ${validation.errors.map((e) => e.message).join("; ")}`,
+            `Input validation failed: ${validation.errors.map((e: { message: string }) => e.message).join("; ")}`,
             422,
             "hypr:ValidationError"
           );

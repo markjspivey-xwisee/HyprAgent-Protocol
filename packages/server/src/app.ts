@@ -25,7 +25,15 @@ import { createOperationRoutes } from "./routes/operations.js";
 import { createIdentityRoutes } from "./routes/identity.js";
 import { createHealthRoutes } from "./routes/health.js";
 
-export async function createApp(config: ServerConfig) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export async function createApp(config: ServerConfig): Promise<{
+  app: ReturnType<typeof express>;
+  storage: MemoryStorage;
+  catalog: CatalogService;
+  payment: PaymentService;
+  federation: FederationService;
+  provenance: ProvenanceService;
+}> {
   const app = express();
 
   // ─── Storage Layer ────────────────────────────────────────────

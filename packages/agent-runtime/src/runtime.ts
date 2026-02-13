@@ -132,7 +132,7 @@ export class HyprAgentRuntime {
 
     try {
       while (
-        this.state === "running" &&
+        (this.state as AgentState) === "running" &&
         this.iterationCount < this.config.maxIterations
       ) {
         await this.iterate();

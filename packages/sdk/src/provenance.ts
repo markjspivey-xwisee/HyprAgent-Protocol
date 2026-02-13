@@ -113,7 +113,7 @@ export class ProvenanceTracker {
 
       // If the result is a JsonLdNode, record it as a generated entity
       if (result && typeof result === "object" && "@id" in (result as Record<string, unknown>)) {
-        this.recordEntity(result as JsonLdNode, `Result of ${label}`);
+        this.recordEntity(result as unknown as JsonLdNode, `Result of ${label}`);
       }
 
       return { result, activityId };
@@ -144,12 +144,12 @@ export class ProvenanceTracker {
 
   /** Get only entities */
   getEntities(): ProvEntitySnapshot[] {
-    return this.chain.items.filter((i): i is ProvEntitySnapshot => i.type === "entity");
+    return this.chain.items.filter((i: ProvenanceItem): i is ProvEntitySnapshot => i.type === "entity");
   }
 
   /** Get only activities */
   getActivities(): ProvActivityRecord[] {
-    return this.chain.items.filter((i): i is ProvActivityRecord => i.type === "activity");
+    return this.chain.items.filter((i: ProvenanceItem): i is ProvActivityRecord => i.type === "activity");
   }
 
   /** Get the current entity ID */
@@ -196,7 +196,7 @@ export class ProvenanceTracker {
         "@id": this.chain.agentDid,
       },
       "prov:generatedAtTime": this.chain.startedAt,
-      "prov:hadMember": this.chain.items.map((item) => {
+      "prov:hadMember": this.chain.items.map((item: ProvenanceItem) => {
         if (item.type === "entity") {
           const entity = item as ProvEntitySnapshot;
           return {
@@ -233,7 +233,7 @@ export class ProvenanceTracker {
       entities: this.getEntities().length,
       activities: this.getActivities().length,
       sealed: this.chain.sealed,
-      items: this.chain.items.map((item) => ({
+      items: this.chain.items.map((item: ProvenanceItem) => ({
         id: item.id,
         type: item.type,
         label: item.type === "entity"
