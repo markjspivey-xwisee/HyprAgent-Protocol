@@ -4,7 +4,8 @@ import { HumanView } from './components/HumanView';
 import { AgentView } from './components/AgentView';
 import { ProtocolDocs } from './components/ProtocolDocs';
 import { SimulationPanel } from './components/SimulationPanel';
-import { fetchHypermedia, MOCK_URLS, demoPrompts } from './services/mockHypermedia';
+import { fetchResource, getAvailableUrls, getPrompts, authenticate, getGatewayStatus } from './services/apiClient';
+import { demoPrompts as fallbackPrompts } from './services/mockHypermedia';
 import { JsonLdNode, ViewMode, LogEntry, ProvenanceItem, ProvEntity, ProvActivity } from './types';
 import { generateProvId } from './utils';
 
@@ -26,7 +27,19 @@ const App: React.FC = () => {
   const [provenanceTrace, setProvenanceTrace] = useState<ProvenanceItem[]>([]);
   const [currentEntityId, setCurrentEntityId] = useState<string>('');
 
+  const [gatewayConnected, setGatewayConnected] = useState(false);
+
   const currentUrl = history[currentIndex];
+
+  // Check gateway connectivity on mount
+  useEffect(() => {
+    const status = getGatewayStatus();
+    setGatewayConnected(status.connected);
+    // Attempt auto-auth with gateway
+    authenticate('did:key:z6MkDefaultAgent').then((token) => {
+      if (token) setGatewayConnected(true);
+    });
+  }, []);
 
   const addAgentLog = (entry: LogEntry) => {
     setAgentLogs(prev => [...prev, entry]);
@@ -55,12 +68,10 @@ const App: React.FC = () => {
 
   const fetchData = async (url: string) => {
     setIsLoading(true);
-    // Note: We don't clear data immediately to allow AgentView to show "scanning" over previous content if desired, 
-    // but standard pattern is to clear or show loading.
-    setData(null); 
-    
+    setData(null);
+
     try {
-      const result = await fetchHypermedia(url);
+      const result = await fetchResource(url);
       setData(result);
 
       // Record PROV:Entity (Snapshot of the State)
@@ -155,7 +166,7 @@ const App: React.FC = () => {
             onToggleEngagement={setIsAgentEngaged}
             provenanceTrace={provenanceTrace}
             onRecordActivity={recordProvActivity}
-            availablePrompts={demoPrompts}
+            availablePrompts={getPrompts().length > 0 ? getPrompts() : fallbackPrompts}
           />
         )}
       </div>
@@ -171,7 +182,9 @@ const App: React.FC = () => {
       {/* Footer / Quick Links */}
       <div className="h-8 bg-gray-950 border-t border-gray-800 flex items-center px-4 text-xs font-mono text-gray-600 gap-4 z-40 relative">
         <span>Quick Jump:</span>
-        {MOCK_URLS.map(url => (
+        {gatewayConnected && <span className="text-green-400">LIVE</span>}
+        {!gatewayConnected && <span className="text-yellow-500">MOCK</span>}
+        {getAvailableUrls().map(url => (
           <button 
             key={url}
             onClick={() => handleNavigate(url)} 

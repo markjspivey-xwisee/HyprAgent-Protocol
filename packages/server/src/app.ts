@@ -9,7 +9,9 @@ import compression from "compression";
 import rateLimit from "express-rate-limit";
 
 import type { ServerConfig } from "./config.js";
+import type { StorageProvider } from "./storage/interface.js";
 import { MemoryStorage } from "./storage/memory.js";
+import { FileStorage } from "./storage/file.js";
 import { CatalogService } from "./services/catalog.js";
 import { PaymentService } from "./services/payment.js";
 import { FederationService } from "./services/federation.js";
@@ -28,7 +30,7 @@ import { createHealthRoutes } from "./routes/health.js";
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export async function createApp(config: ServerConfig): Promise<{
   app: ReturnType<typeof express>;
-  storage: MemoryStorage;
+  storage: StorageProvider;
   catalog: CatalogService;
   payment: PaymentService;
   federation: FederationService;
@@ -37,7 +39,9 @@ export async function createApp(config: ServerConfig): Promise<{
   const app = express();
 
   // ─── Storage Layer ────────────────────────────────────────────
-  const storage = new MemoryStorage();
+  const storage: StorageProvider = config.storageBackend === "file"
+    ? new FileStorage(config.storageDir)
+    : new MemoryStorage();
 
   // ─── Services ─────────────────────────────────────────────────
   const catalog = new CatalogService(storage, config.baseUrl);

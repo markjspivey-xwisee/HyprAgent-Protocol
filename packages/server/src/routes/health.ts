@@ -3,10 +3,10 @@
  */
 
 import { Router } from "express";
-import type { MemoryStorage } from "../storage/memory.js";
+import type { StorageProvider } from "../storage/interface.js";
 import { HYPRCAT_VERSION } from "@hyprcat/protocol";
 
-export function createHealthRoutes(storage: MemoryStorage): Router {
+export function createHealthRoutes(storage: StorageProvider): Router {
   const router = Router();
 
   // Health check
@@ -28,10 +28,10 @@ export function createHealthRoutes(storage: MemoryStorage): Router {
   });
 
   // Stats (for monitoring)
-  router.get("/stats", (_req, res) => {
-    const stats = storage.getStats();
+  router.get("/stats", async (_req, res) => {
+    const resourceList = await storage.listResources();
     res.json({
-      ...stats,
+      resources: resourceList.length,
       memory: {
         heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),

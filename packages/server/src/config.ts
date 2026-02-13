@@ -25,6 +25,10 @@ export interface ServerConfig {
   enableCompression: boolean;
   /** Node environment */
   nodeEnv: string;
+  /** Storage backend: "memory" | "file" */
+  storageBackend: "memory" | "file";
+  /** File storage directory (when storageBackend is "file") */
+  storageDir: string;
 }
 
 export function loadConfig(): ServerConfig {
@@ -40,5 +44,7 @@ export function loadConfig(): ServerConfig {
     enableHelmet: process.env.ENABLE_HELMET !== "false",
     enableCompression: process.env.ENABLE_COMPRESSION !== "false",
     nodeEnv: process.env.NODE_ENV || "development",
+    storageBackend: (process.env.STORAGE_BACKEND as "memory" | "file") || "memory",
+    storageDir: process.env.STORAGE_DIR || "./data",
   };
 }

@@ -1,67 +1,65 @@
 /**
- * Identity routes - DID-Auth, session management, and credential verification.
+ * Identity routes - DID-Auth challenge/response, JWT session management, wallet.
  */
 
 import { Router } from "express";
 import type { StorageProvider } from "../storage/interface.js";
+import {
+  createAuthChallenge,
+  verifyAuthResponse,
+  createJWT,
+} from "../crypto.js";
 
 export function createIdentityRoutes(storage: StorageProvider, baseUrl: string): Router {
   const router = Router();
 
-  // DID-Auth challenge
-  router.post("/auth/challenge", async (req, res) => {
-    const nonce = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 300_000).toISOString();
-
-    await storage.setSession(`nonce:${nonce}`, { nonce, createdAt: Date.now() }, 300_000);
+  // ─── DID-Auth Challenge ──────────────────────────────────────────
+  router.post("/auth/challenge", (req, res) => {
+    const domain = req.hostname || new URL(baseUrl).hostname;
+    const challenge = createAuthChallenge(domain);
 
     res.json({
       "@type": "hypr:AuthChallenge",
-      nonce,
-      domain: req.hostname,
-      issuedAt: new Date().toISOString(),
-      expiresAt,
+      nonce: challenge.nonce,
+      domain: challenge.domain,
+      issuedAt: challenge.issuedAt,
+      expiresAt: challenge.expiresAt,
+      "hypr:verifyEndpoint": `${baseUrl}/auth/verify`,
+      "hypr:signatureFormat": "HMAC-SHA256(did:nonce:domain)",
     });
   });
 
-  // DID-Auth verification (exchange challenge for session token)
+  // ─── DID-Auth Verify (exchange signed challenge for JWT) ─────────
   router.post("/auth/verify", async (req, res) => {
     const { did, signature, nonce } = req.body;
 
     if (!did || !signature || !nonce) {
       res.status(400).json({
-        "@type": "hypr:InvalidRequest",
+        "@type": "hypr:ValidationError",
+        "hypr:statusCode": 400,
         "hypr:detail": "Missing required fields: did, signature, nonce",
       });
       return;
     }
 
-    // Verify nonce
-    const storedNonce = await storage.getSession(`nonce:${nonce}`);
-    if (!storedNonce) {
+    // Verify the challenge response
+    const isValid = verifyAuthResponse(did, signature, nonce);
+    if (!isValid) {
       res.status(401).json({
-        "@type": "hypr:Error",
+        "@type": "hypr:AuthenticationFailed",
         "hypr:statusCode": 401,
-        "hypr:detail": "Invalid or expired nonce",
+        "hypr:detail": "Invalid signature or expired challenge",
       });
       return;
     }
 
-    await storage.deleteSession(`nonce:${nonce}`);
+    // Issue JWT
+    const token = createJWT(did, {
+      scope: ["read", "write", "execute"],
+      provider: "HyprCAT Gateway",
+    });
 
-    // In production: resolve DID document, verify signature against public key
-    // For now, accept the authentication
-
-    const sessionToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 3600_000).toISOString();
-
-    await storage.setSession(
-      `session:${sessionToken}`,
-      { did, scope: ["read", "write", "execute"], createdAt: Date.now() },
-      3600_000
-    );
-
-    // Initialize wallet state for the agent
+    // Initialize wallet state for new agents
     const existingWallet = await storage.getWalletState(did);
     if (!existingWallet) {
       await storage.setWalletState(did, {
@@ -75,20 +73,21 @@ export function createIdentityRoutes(storage: StorageProvider, baseUrl: string):
 
     res.json({
       "@type": "hypr:SessionToken",
-      token: sessionToken,
+      token,
       did,
       issuedAt: new Date().toISOString(),
-      expiresAt,
+      expiresAt: new Date(Date.now() + 3600_000).toISOString(),
       scope: ["read", "write", "execute"],
     });
   });
 
-  // Get agent profile
+  // ─── Agent Profile ───────────────────────────────────────────────
   router.get("/auth/profile", async (req, res) => {
     if (!req.agentDid) {
       res.status(401).json({
         "@type": "hypr:AuthenticationRequired",
         "hypr:detail": "Authentication required to view profile",
+        "hypr:challengeEndpoint": `${baseUrl}/auth/challenge`,
       });
       return;
     }
@@ -100,6 +99,7 @@ export function createIdentityRoutes(storage: StorageProvider, baseUrl: string):
       "@id": req.agentDid,
       "@type": "schema:Person",
       "schema:name": `Agent ${req.agentDid.split(":").pop()?.substring(0, 8)}`,
+      "hypr:authenticated": true,
       "x402:wallet": walletState
         ? {
             balance: walletState.balances.SAT,
@@ -111,7 +111,7 @@ export function createIdentityRoutes(storage: StorageProvider, baseUrl: string):
     });
   });
 
-  // Wallet operations
+  // ─── Wallet ──────────────────────────────────────────────────────
   router.get("/wallet", async (req, res) => {
     if (!req.agentDid) {
       res.status(401).json({ "@type": "hypr:AuthenticationRequired" });
