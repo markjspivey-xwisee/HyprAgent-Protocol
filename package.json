@@ -1,12 +1,29 @@
 {
-  "name": "hypragent-inspector",
+  "name": "hyprcat-platform",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "HyprCAT Protocol - Hypermedia Context & Action Transfer for decentralized data marketplaces",
   "scripts": {
     "dev": "vite",
+    "dev:server": "pnpm --filter @hyprcat/server dev",
+    "dev:all": "concurrently \"pnpm dev\" \"pnpm dev:server\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:protocol": "pnpm --filter @hyprcat/protocol build",
+    "build:sdk": "pnpm --filter @hyprcat/sdk build",
+    "build:server": "pnpm --filter @hyprcat/server build",
+    "build:runtime": "pnpm --filter @hyprcat/agent-runtime build",
+    "build:all": "pnpm build:protocol && pnpm build:sdk && pnpm build:server && pnpm build:runtime",
+    "start:server": "pnpm --filter @hyprcat/server start",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit && pnpm --filter '@hyprcat/*' typecheck",
+    "clean": "pnpm --filter '@hyprcat/*' clean && rm -rf dist",
+    "docker:build": "docker compose -f docker/docker-compose.yml build",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down"
   },
   "dependencies": {
     "react": "^19.2.4",
@@ -16,7 +33,14 @@
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.1.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vitest": "^3.0.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/markjspivey-xwisee/HyprAgent-Protocol.git"
   }
 }

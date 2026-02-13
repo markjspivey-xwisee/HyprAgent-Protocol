@@ -1,0 +1,27 @@
+{
+  "name": "@hyprcat/agent-runtime",
+  "version": "1.0.0",
+  "description": "Autonomous agent runtime implementing the HyprCAT O.N.A. (Observe-Negotiate-Attest) loop",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hyprcat/protocol": "workspace:*",
+    "@hyprcat/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2"
+  },
+  "license": "Apache-2.0"
+}
