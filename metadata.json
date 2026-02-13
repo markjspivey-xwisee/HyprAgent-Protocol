@@ -1,0 +1,5 @@
+{
+  "name": "HyprAGENT Inspector",
+  "description": "Reference implementation of a HyprAgent—an autonomous semantic browser designed to negotiate the HyprCAT Protocol (Hypermedia Context & Action Transfer) within a decentralized Data Mesh.",
+  "requestFramePermissions": []
+}
