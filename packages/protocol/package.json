@@ -1,0 +1,31 @@
+{
+  "name": "@hyprcat/protocol",
+  "version": "1.0.0",
+  "description": "Core protocol types, schemas, and validation for the HyprCAT Protocol",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/index.d.ts",
+      "import": "./dist/schemas/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "typescript": "~5.8.2"
+  }
+}

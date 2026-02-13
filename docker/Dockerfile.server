@@ -1,0 +1,46 @@
+FROM node:22-alpine AS base
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy workspace config
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY packages/protocol/package.json packages/protocol/
+COPY packages/server/package.json packages/server/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile --filter @hyprcat/server...
+
+# Copy source
+COPY packages/protocol/ packages/protocol/
+COPY packages/server/ packages/server/
+
+# Build
+RUN pnpm --filter @hyprcat/protocol build && pnpm --filter @hyprcat/server build
+
+# Production image
+FROM node:22-alpine AS production
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY --from=base /app/pnpm-workspace.yaml /app/package.json ./
+COPY --from=base /app/packages/protocol/package.json packages/protocol/
+COPY --from=base /app/packages/protocol/dist packages/protocol/dist/
+COPY --from=base /app/packages/server/package.json packages/server/
+COPY --from=base /app/packages/server/dist packages/server/dist/
+COPY --from=base /app/node_modules node_modules/
+COPY --from=base /app/packages/server/node_modules packages/server/node_modules/
+
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV HOST=0.0.0.0
+ENV BASE_URL=http://localhost:3001
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+
+CMD ["node", "packages/server/dist/index.js"]

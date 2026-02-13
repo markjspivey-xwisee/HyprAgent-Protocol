@@ -1,0 +1,509 @@
+openapi: 3.1.0
+info:
+  title: HyprCAT Gateway API
+  description: |
+    HyprCAT Protocol Gateway Server API.
+    Serves JSON-LD resources with Hydra affordances, x402 payments,
+    ERC-8004 token gating, C-ZERO federation, and PROV-O provenance.
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  contact:
+    name: HyprAgent Protocol
+    url: https://github.com/markjspivey-xwisee/HyprAgent-Protocol
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+  - url: https://api.hyprcat.io
+    description: Production server
+
+tags:
+  - name: Discovery
+    description: Service discovery and catalog navigation
+  - name: Resources
+    description: Data product and resource access
+  - name: Operations
+    description: Execute Hydra operations (checkout, query, export)
+  - name: Identity
+    description: DID-Auth authentication and session management
+  - name: Health
+    description: Server health and monitoring
+
+paths:
+  /.well-known/hyprcat:
+    get:
+      tags: [Discovery]
+      summary: Service Description
+      description: Returns the HyprCAT service description with capabilities and entry point
+      operationId: getServiceDescription
+      responses:
+        "200":
+          description: HyprCAT Service Description
+          content:
+            application/ld+json:
+              schema:
+                $ref: "#/components/schemas/ServiceDescription"
+
+  /catalog:
+    get:
+      tags: [Discovery]
+      summary: Browse Catalog
+      description: Returns the data marketplace catalog with search support
+      operationId: getCatalog
+      parameters:
+        - name: q
+          in: query
+          description: Search query
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filter by resource type
+          schema:
+            type: string
+        - name: domain
+          in: query
+          description: Filter by domain
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Catalog collection
+          content:
+            application/ld+json:
+              schema:
+                $ref: "#/components/schemas/HydraCollection"
+
+  /prompts:
+    get:
+      tags: [Discovery]
+      summary: MCP Prompt Collection
+      description: Returns available agent prompts
+      operationId: getPrompts
+      responses:
+        "200":
+          description: Prompt collection
+          content:
+            application/ld+json:
+              schema:
+                $ref: "#/components/schemas/HydraCollection"
+
+  /nodes/{nodeType}:
+    get:
+      tags: [Resources]
+      summary: Get Resource Node
+      description: Fetch a specific data product or resource node
+      operationId: getNode
+      parameters:
+        - name: nodeType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [retail, analytics, lrs]
+      responses:
+        "200":
+          description: Resource with Hydra affordances
+          headers:
+            X-Provenance-Id:
+              description: Provenance ID for this request
+              schema:
+                type: string
+          content:
+            application/ld+json:
+              schema:
+                $ref: "#/components/schemas/JsonLdNode"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /operations/checkout:
+    post:
+      tags: [Operations]
+      summary: Execute Purchase
+      description: Process a product purchase with x402 payment
+      operationId: checkout
+      parameters:
+        - name: X-Payment-Proof
+          in: header
+          description: Base64-encoded payment preimage
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/ld+json:
+            schema:
+              type: object
+              properties:
+                "schema:price":
+                  type: string
+                  description: Price in SAT
+              required: ["schema:price"]
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/ld+json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "402":
+          description: Payment required
+          content:
+            application/ld+json:
+              schema:
+                $ref: "#/components/schemas/PaymentRequired"
+
+  /operations/query:
+    post:
+      tags: [Operations]
+      summary: Execute SQL Query
+      description: Run a federated query via C-ZERO
+      operationId: executeQuery
+      requestBody:
+        required: true
+        content:
+          application/ld+json:
+            schema:
+              type: object
+              properties:
+                "schema:query":
+                  type: string
+                  description: SQL query statement
+              required: ["schema:query"]
+      responses:
+        "200":
+          description: Query results
+          content:
+            application/ld+json:
+              schema:
+                $ref: "#/components/schemas/ResultSet"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /operations/lrs/export:
+    get:
+      tags: [Operations]
+      summary: Export xAPI Statements
+      description: Export learning record statements from the LRS
+      operationId: exportLRS
+      responses:
+        "200":
+          description: xAPI statement results
+          content:
+            application/ld+json:
+              schema:
+                type: object
+
+  /auth/challenge:
+    post:
+      tags: [Identity]
+      summary: Request Auth Challenge
+      description: Request a DID-Auth challenge nonce
+      operationId: requestChallenge
+      responses:
+        "200":
+          description: Auth challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthChallenge"
+
+  /auth/verify:
+    post:
+      tags: [Identity]
+      summary: Verify DID-Auth
+      description: Exchange signed challenge for session token
+      operationId: verifyAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                did:
+                  type: string
+                signature:
+                  type: string
+                nonce:
+                  type: string
+              required: [did, signature, nonce]
+      responses:
+        "200":
+          description: Session token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionToken"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/profile:
+    get:
+      tags: [Identity]
+      summary: Get Agent Profile
+      description: Returns the authenticated agent's profile and wallet
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+        - DIDAuth: []
+      responses:
+        "200":
+          description: Agent profile
+          content:
+            application/ld+json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /wallet:
+    get:
+      tags: [Identity]
+      summary: Get Wallet State
+      description: Returns the authenticated agent's wallet balances and tokens
+      operationId: getWallet
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Wallet state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletState"
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Health Check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Server health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  version:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+
+  /stats:
+    get:
+      tags: [Health]
+      summary: Server Stats
+      operationId: getStats
+      responses:
+        "200":
+          description: Server statistics
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+    DIDAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: "DID-Auth did:key:...;sig=<signature>;nonce=<nonce>"
+
+  schemas:
+    JsonLdNode:
+      type: object
+      required: ["@id", "@type"]
+      properties:
+        "@context":
+          oneOf:
+            - type: string
+            - type: object
+        "@id":
+          type: string
+          format: uri
+        "@type":
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+
+    ServiceDescription:
+      allOf:
+        - $ref: "#/components/schemas/JsonLdNode"
+        - type: object
+          properties:
+            "hypr:entrypoint":
+              type: string
+              format: uri
+            "hypr:version":
+              type: string
+            "hypr:capabilities":
+              type: array
+              items:
+                type: string
+
+    HydraCollection:
+      allOf:
+        - $ref: "#/components/schemas/JsonLdNode"
+        - type: object
+          properties:
+            "hydra:member":
+              type: array
+              items:
+                $ref: "#/components/schemas/JsonLdNode"
+            "hydra:totalItems":
+              type: integer
+            "hydra:view":
+              type: object
+
+    Order:
+      allOf:
+        - $ref: "#/components/schemas/JsonLdNode"
+        - type: object
+          properties:
+            "schema:orderStatus":
+              type: string
+            "schema:orderNumber":
+              type: string
+            "schema:price":
+              type: number
+
+    PaymentRequired:
+      type: object
+      properties:
+        "@type":
+          type: string
+          enum: ["x402:PaymentRequired"]
+        "x402:amount":
+          type: number
+        "x402:currency":
+          type: string
+        "x402:recipient":
+          type: string
+        "x402:invoice":
+          type: string
+        "x402:expiresAt":
+          type: string
+          format: date-time
+
+    ResultSet:
+      allOf:
+        - $ref: "#/components/schemas/JsonLdNode"
+        - type: object
+          properties:
+            "czero:items":
+              type: array
+              items:
+                type: object
+            "czero:totalExecutionTime":
+              type: string
+            "czero:sourcesQueried":
+              type: integer
+
+    AuthChallenge:
+      type: object
+      properties:
+        nonce:
+          type: string
+        domain:
+          type: string
+        issuedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    SessionToken:
+      type: object
+      properties:
+        token:
+          type: string
+        did:
+          type: string
+        issuedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        scope:
+          type: array
+          items:
+            type: string
+
+    WalletState:
+      type: object
+      properties:
+        did:
+          type: string
+        balances:
+          type: object
+        tokens:
+          type: object
+        subscriptions:
+          type: array
+          items:
+            type: object
+
+    HyprError:
+      type: object
+      properties:
+        "@type":
+          type: string
+        "hypr:statusCode":
+          type: integer
+        "hypr:title":
+          type: string
+        "hypr:detail":
+          type: string
+        "hypr:instance":
+          type: string
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/ld+json:
+          schema:
+            $ref: "#/components/schemas/HyprError"
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/ld+json:
+          schema:
+            $ref: "#/components/schemas/HyprError"
+
+    ValidationError:
+      description: Input validation failed
+      content:
+        application/ld+json:
+          schema:
+            $ref: "#/components/schemas/HyprError"

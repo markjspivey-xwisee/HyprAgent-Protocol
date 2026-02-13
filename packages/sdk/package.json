@@ -1,0 +1,26 @@
+{
+  "name": "@hyprcat/sdk",
+  "version": "1.0.0",
+  "description": "Client SDK for interacting with HyprCAT Protocol services",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hyprcat/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2"
+  },
+  "license": "Apache-2.0"
+}
