@@ -38,3 +38,6 @@ coverage
 
 # Docker
 .docker
+
+# File storage data (generated at runtime)
+data/
