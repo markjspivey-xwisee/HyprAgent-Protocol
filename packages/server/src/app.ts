@@ -133,6 +133,13 @@ export async function createApp(config: ServerConfig): Promise<{
     });
   }
 
+  // ─── Static Frontend (production) ──────────────────────────────
+  // Serve static assets (JS, CSS, images) before API routes
+  const staticDir = process.env.STATIC_DIR;
+  if (staticDir) {
+    app.use(express.static(path.resolve(staticDir), { maxAge: "1y", immutable: true }));
+  }
+
   // ─── Routes ───────────────────────────────────────────────────
   app.use(createHealthRoutes(storage));
   app.use(createCatalogRoutes(catalog, provenance, config.baseUrl));
@@ -140,12 +147,14 @@ export async function createApp(config: ServerConfig): Promise<{
   app.use(createOperationRoutes(payment, federation, provenance, storage, config.baseUrl));
   app.use(createIdentityRoutes(storage, config.baseUrl));
 
-  // ─── Static Frontend (production) ──────────────────────────────
-  const staticDir = process.env.STATIC_DIR;
+  // SPA fallback: serve index.html for browser navigation to non-API paths
   if (staticDir) {
-    app.use(express.static(path.resolve(staticDir), { maxAge: "1y", immutable: true }));
-    app.get("{*splat}", (_req, res) => {
-      res.sendFile(path.resolve(staticDir, "index.html"));
+    app.use((req, res, next) => {
+      if (req.method === "GET" && req.accepts("html")) {
+        res.sendFile(path.resolve(staticDir, "index.html"));
+      } else {
+        next();
+      }
     });
   }
 
