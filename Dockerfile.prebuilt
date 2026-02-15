@@ -1,0 +1,32 @@
+# Pre-built deployment Dockerfile - no network needed during build
+# Single Node.js process serves both API + static frontend on :8080
+FROM node:22-alpine AS production
+WORKDIR /app
+
+# Copy pre-built API server + dependencies
+COPY pnpm-workspace.yaml package.json ./
+COPY packages/protocol/package.json packages/protocol/
+COPY packages/protocol/dist packages/protocol/dist/
+COPY packages/server/package.json packages/server/
+COPY packages/server/dist packages/server/dist/
+COPY node_modules node_modules/
+COPY packages/server/node_modules packages/server/node_modules/
+
+# Copy built frontend static files
+COPY dist static/
+
+RUN mkdir -p /data
+
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV HOST=0.0.0.0
+ENV STORAGE_BACKEND=file
+ENV STORAGE_DIR=/data
+ENV STATIC_DIR=/app/static
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+CMD ["node", "packages/server/dist/index.js"]

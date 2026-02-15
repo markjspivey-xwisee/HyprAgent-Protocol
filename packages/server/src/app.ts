@@ -2,6 +2,7 @@
  * HyprCAT Gateway - Express application setup.
  */
 
+import path from "path";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -138,6 +139,15 @@ export async function createApp(config: ServerConfig): Promise<{
   app.use(createResourceRoutes(catalog, provenance, config.baseUrl));
   app.use(createOperationRoutes(payment, federation, provenance, storage, config.baseUrl));
   app.use(createIdentityRoutes(storage, config.baseUrl));
+
+  // ─── Static Frontend (production) ──────────────────────────────
+  const staticDir = process.env.STATIC_DIR;
+  if (staticDir) {
+    app.use(express.static(path.resolve(staticDir), { maxAge: "1y", immutable: true }));
+    app.get("{*splat}", (_req, res) => {
+      res.sendFile(path.resolve(staticDir, "index.html"));
+    });
+  }
 
   // ─── Error Handling ───────────────────────────────────────────
   app.use(notFoundHandler());

@@ -10,13 +10,14 @@ primary_region = "iad"
 
 [env]
   NODE_ENV = "production"
-  PORT = "3001"
+  PORT = "8080"
   HOST = "0.0.0.0"
   STORAGE_BACKEND = "file"
   STORAGE_DIR = "/data"
   ENABLE_LOGGING = "true"
   LOG_LEVEL = "info"
   RATE_LIMIT_MAX = "200"
+  STATIC_DIR = "/app/static"
 
 [http_service]
   internal_port = 8080
