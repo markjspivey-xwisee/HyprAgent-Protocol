@@ -1,12 +1,12 @@
-# Fly.io deployment configuration for HyprCAT Gateway Server
-# Deploy: fly launch --copy-config && fly deploy
-# Docs: https://fly.io/docs/reference/configuration/
+# Fly.io deployment configuration for HyprCAT Platform
+# Deploy: fly deploy
+# First time: fly launch --copy-config
 
 app = "hyprcat-gateway"
 primary_region = "iad"
 
 [build]
-  dockerfile = "docker/Dockerfile.server"
+  dockerfile = "Dockerfile"
 
 [env]
   NODE_ENV = "production"
@@ -19,7 +19,7 @@ primary_region = "iad"
   RATE_LIMIT_MAX = "200"
 
 [http_service]
-  internal_port = 3001
+  internal_port = 8080
   force_https = true
   auto_stop_machines = true
   auto_start_machines = true
