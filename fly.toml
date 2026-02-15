@@ -18,6 +18,7 @@ primary_region = "iad"
   LOG_LEVEL = "info"
   RATE_LIMIT_MAX = "200"
   STATIC_DIR = "/app/static"
+  BASE_URL = "https://hyprcat-gateway.fly.dev"
 
 [http_service]
   internal_port = 8080

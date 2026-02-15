@@ -19,7 +19,7 @@ interface ApiConfig {
 }
 
 const DEFAULT_CONFIG: ApiConfig = {
-  gatewayUrl: import.meta.env.VITE_GATEWAY_URL || 'http://localhost:3001',
+  gatewayUrl: import.meta.env.VITE_GATEWAY_URL || window.location.origin,
   timeout: 15000,
 };
 
