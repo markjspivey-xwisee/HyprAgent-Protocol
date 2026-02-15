@@ -108,6 +108,14 @@ export async function createApp(config: ServerConfig): Promise<{
     },
   }));
 
+  // ─── Static Frontend (production) ──────────────────────────────
+  // Serve static assets BEFORE JSON-LD middleware so they get correct content types
+  const staticDir = process.env.STATIC_DIR;
+  if (staticDir) {
+    app.use(express.static(path.resolve(staticDir), { maxAge: "1y", immutable: true }));
+  }
+
+  // ─── API Middleware (only affects routes below) ────────────────
   // JSON-LD response headers
   app.use(jsonLdHeaders());
   app.use(contentNegotiation());
@@ -133,13 +141,6 @@ export async function createApp(config: ServerConfig): Promise<{
     });
   }
 
-  // ─── Static Frontend (production) ──────────────────────────────
-  // Serve static assets (JS, CSS, images) before API routes
-  const staticDir = process.env.STATIC_DIR;
-  if (staticDir) {
-    app.use(express.static(path.resolve(staticDir), { maxAge: "1y", immutable: true }));
-  }
-
   // ─── Routes ───────────────────────────────────────────────────
   app.use(createHealthRoutes(storage));
   app.use(createCatalogRoutes(catalog, provenance, config.baseUrl));
@@ -151,6 +152,9 @@ export async function createApp(config: ServerConfig): Promise<{
   if (staticDir) {
     app.use((req, res, next) => {
       if (req.method === "GET" && req.accepts("html")) {
+        res.removeHeader("Content-Type");
+        res.removeHeader("Link");
+        res.type("html");
         res.sendFile(path.resolve(staticDir, "index.html"));
       } else {
         next();
