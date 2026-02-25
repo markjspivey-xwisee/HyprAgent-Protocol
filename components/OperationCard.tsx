@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { HydraOperation, HydraSupportedProperty, ProvActivity } from '../types';
 import { Terminal, Send, CheckCircle, AlertCircle, Search, Bitcoin, ArrowRightCircle } from 'lucide-react';
-import { executeHypermediaAction } from '../services/mockHypermedia';
+import { executeOperation } from '../services/apiClient';
 
 interface OperationCardProps {
   operation: HydraOperation;
@@ -108,7 +108,7 @@ export const OperationCard: React.FC<OperationCardProps> = ({
 
       // Handle standard POST/PUT actions (including Payments)
       const actionTarget = operation['target'] || targetId;
-      const result = await executeHypermediaAction(actionTarget, method, formData);
+      const result = await executeOperation(actionTarget, method, formData);
       
       setStatus('success');
       console.log(`[HyperAgent] Executed ${method} on ${actionTarget}`, formData, "Result:", result);

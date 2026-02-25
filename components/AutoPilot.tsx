@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HydraOperation, LogEntry, JsonLdNode, ProvActivity, McpPrompt } from '../types';
-import { executeHypermediaAction, serverActions } from '../services/mockHypermedia';
+import { executeOperation } from '../services/apiClient';
+import { serverActions } from '../services/mockHypermedia';
 import { Bot, Play, Trash2, Scroll, Hexagon, Cpu } from 'lucide-react'; 
 
 interface AutoPilotProps {
@@ -113,7 +114,7 @@ export const AutoPilot: React.FC<AutoPilotProps> = ({
       }
 
       if (selectedOp) {
-         const res = await executeHypermediaAction(selectedOp['target'] || targetId, selectedOp['hydra:method'], payload);
+         const res = await executeOperation(selectedOp['target'] || targetId, selectedOp['hydra:method'], payload);
          addLog('success', 'HyprCAT Affordance Executed Successfully.');
          if (onResult) onResult(res);
          onToggleEngagement(false);
