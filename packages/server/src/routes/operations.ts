@@ -8,6 +8,7 @@ import type { PaymentService } from "../services/payment.js";
 import type { FederationService } from "../services/federation.js";
 import type { ProvenanceService } from "../services/provenance.js";
 import type { StorageProvider } from "../storage/interface.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 export function createOperationRoutes(
   payment: PaymentService,
@@ -19,7 +20,7 @@ export function createOperationRoutes(
   const router = Router();
 
   // Checkout (purchase) operation
-  router.post("/operations/checkout", async (req, res) => {
+  router.post("/operations/checkout", asyncHandler(async (req, res) => {
     const startTime = Date.now();
     const agentDid = req.agentDid || "anonymous";
     const price = parseInt(req.body["schema:price"] || "100");
@@ -57,8 +58,8 @@ export function createOperationRoutes(
 
       res.status(201).json(order);
 
-      // Record provenance
-      await provenance.recordActivity(agentDid, {
+      // Record provenance (fire-and-forget)
+      provenance.recordActivity(agentDid, {
         label: `Purchase: ${price} SAT`,
         actionType: "schema:BuyAction",
         targetUrl: `${baseUrl}/operations/checkout`,
@@ -66,7 +67,7 @@ export function createOperationRoutes(
         statusCode: 201,
         duration: Date.now() - startTime,
         payload: { price, receiptId: receipt.id },
-      });
+      }).catch((err) => console.error("[provenance] checkout failed:", err.message));
     } catch (error) {
       res.status(400).json({
         "@type": "hypr:Error",
@@ -74,10 +75,10 @@ export function createOperationRoutes(
         "hypr:detail": (error as Error).message,
       });
     }
-  });
+  }));
 
   // SQL Query operation
-  router.post("/operations/query", async (req, res) => {
+  router.post("/operations/query", asyncHandler(async (req, res) => {
     const startTime = Date.now();
     const agentDid = req.agentDid || "anonymous";
     const query = req.body["schema:query"];
@@ -100,8 +101,8 @@ export function createOperationRoutes(
 
       res.json(resultSet);
 
-      // Record provenance
-      await provenance.recordActivity(agentDid, {
+      // Record provenance (fire-and-forget)
+      provenance.recordActivity(agentDid, {
         label: `SQL Query Executed`,
         actionType: "czero:QueryAction",
         targetUrl: `${baseUrl}/operations/query`,
@@ -109,7 +110,7 @@ export function createOperationRoutes(
         statusCode: 200,
         duration: Date.now() - startTime,
         payload: { query, resultCount: resultSet["czero:items"].length },
-      });
+      }).catch((err) => console.error("[provenance] query failed:", err.message));
     } catch (error) {
       res.status(502).json({
         "@type": "czero:FederationError",
@@ -117,10 +118,10 @@ export function createOperationRoutes(
         "hypr:detail": (error as Error).message,
       });
     }
-  });
+  }));
 
   // LRS Export operation
-  router.get("/operations/lrs/export", async (req, res) => {
+  router.get("/operations/lrs/export", asyncHandler(async (req, res) => {
     const startTime = Date.now();
     const agentDid = req.agentDid || "anonymous";
 
@@ -156,21 +157,21 @@ export function createOperationRoutes(
 
     res.json(statements);
 
-    // Record provenance
+    // Record provenance (fire-and-forget)
     if (agentDid !== "anonymous") {
-      await provenance.recordActivity(agentDid, {
+      provenance.recordActivity(agentDid, {
         label: "LRS Export",
         actionType: "schema:DownloadAction",
         targetUrl: `${baseUrl}/operations/lrs/export`,
         method: "GET",
         statusCode: 200,
         duration: Date.now() - startTime,
-      });
+      }).catch((err) => console.error("[provenance] lrs export failed:", err.message));
     }
-  });
+  }));
 
   // Governance token operations
-  router.post("/operations/token/mint", async (req, res) => {
+  router.post("/operations/token/mint", asyncHandler(async (req, res) => {
     const agentDid = req.agentDid || "anonymous";
     const quantity = parseInt(req.body["schema:quantity"] || "1");
     const tokenCost = 500 * quantity;
@@ -196,9 +197,9 @@ export function createOperationRoutes(
       "schema:orderNumber": `0x${crypto.randomUUID().replace(/-/g, "")}`,
       "schema:description": `Minted ${quantity} governance token(s)`,
     });
-  });
+  }));
 
-  router.delete("/operations/token/burn", async (req, res) => {
+  router.delete("/operations/token/burn", asyncHandler(async (req, res) => {
     const agentDid = req.agentDid || "anonymous";
 
     const walletState = await storage.getWalletState(agentDid);
@@ -220,7 +221,7 @@ export function createOperationRoutes(
       "schema:name": "Refund Successful",
       "schema:description": "Token burned. 500 SAT returned.",
     });
-  });
+  }));
 
   return router;
 }

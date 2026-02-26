@@ -5,6 +5,7 @@
 import { Router } from "express";
 import type { StorageProvider } from "../storage/interface.js";
 import { HYPRCAT_VERSION } from "@hyprcat/protocol";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 export function createHealthRoutes(storage: StorageProvider): Router {
   const router = Router();
@@ -28,7 +29,7 @@ export function createHealthRoutes(storage: StorageProvider): Router {
   });
 
   // Stats (for monitoring)
-  router.get("/stats", async (_req, res) => {
+  router.get("/stats", asyncHandler(async (_req, res) => {
     const resourceList = await storage.listResources();
     res.json({
       resources: resourceList.length,
@@ -39,17 +40,17 @@ export function createHealthRoutes(storage: StorageProvider): Router {
       },
       uptime: process.uptime(),
     });
-  });
+  }));
 
   // Provenance endpoint
-  router.get("/provenance/:agentDid", async (req, res) => {
+  router.get("/provenance/:agentDid", asyncHandler(async (req, res) => {
     // This would be connected to the provenance service
     res.json({
       "@type": "prov:Bundle",
       "@id": `urn:provenance:${req.params.agentDid}`,
       "prov:agent": req.params.agentDid,
     });
-  });
+  }));
 
   return router;
 }

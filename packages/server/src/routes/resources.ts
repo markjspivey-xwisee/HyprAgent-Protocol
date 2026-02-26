@@ -5,6 +5,7 @@
 import { Router } from "express";
 import type { CatalogService } from "../services/catalog.js";
 import type { ProvenanceService } from "../services/provenance.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 export function createResourceRoutes(
   catalog: CatalogService,
@@ -14,7 +15,7 @@ export function createResourceRoutes(
   const router = Router();
 
   // Get any resource node by path
-  router.get("/nodes/:nodeType", async (req, res) => {
+  router.get("/nodes/:nodeType", asyncHandler(async (req, res) => {
     const iri = `${baseUrl}/nodes/${req.params.nodeType}`;
     const startTime = Date.now();
 
@@ -40,21 +41,21 @@ export function createResourceRoutes(
 
     res.json(resource);
 
-    // Record provenance
+    // Record provenance (fire-and-forget)
     if (req.agentDid) {
-      await provenance.recordActivity(req.agentDid, {
+      provenance.recordActivity(req.agentDid, {
         label: `Fetch ${(resource as Record<string, unknown>)["dct:title"] || req.params.nodeType}`,
         actionType: "schema:ViewAction",
         targetUrl: iri,
         method: "GET",
         statusCode: 200,
         duration: Date.now() - startTime,
-      });
+      }).catch((err) => console.error("[provenance] resource fetch failed:", err.message));
     }
-  });
+  }));
 
   // Get nested resources (e.g., /nodes/retail/products/h100)
-  router.get("/nodes/:nodeType/:subType/:resourceId", async (req, res) => {
+  router.get("/nodes/:nodeType/:subType/:resourceId", asyncHandler(async (req, res) => {
     const iri = `${baseUrl}/nodes/${req.params.nodeType}/${req.params.subType}/${req.params.resourceId}`;
 
     const resource = await catalog.getResource(iri);
@@ -82,10 +83,10 @@ export function createResourceRoutes(
     }
 
     res.json(resource);
-  });
+  }));
 
   // Register a new data product
-  router.post("/nodes", async (req, res) => {
+  router.post("/nodes", asyncHandler(async (req, res) => {
     const product = req.body;
 
     if (!product["@id"] || !product["@type"]) {
@@ -104,7 +105,7 @@ export function createResourceRoutes(
       "schema:name": "Resource Registered",
       "schema:description": `Resource ${product["@id"]} registered in catalog`,
     });
-  });
+  }));
 
   return router;
 }

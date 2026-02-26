@@ -32,11 +32,14 @@ export function errorHandler() {
       "hypr:instance": req.originalUrl,
     };
 
-    if (process.env.NODE_ENV !== "production" && statusCode >= 500) {
-      console.error(`[ERROR] ${req.method} ${req.url}:`, err);
+    // Always log 500-level errors
+    if (statusCode >= 500) {
+      console.error(`[ERROR] ${req.method} ${req.url}:`, err.message, err.stack);
     }
 
-    res.status(statusCode).json(errorResponse);
+    if (!res.headersSent) {
+      res.status(statusCode).json(errorResponse);
+    }
   };
 }
 

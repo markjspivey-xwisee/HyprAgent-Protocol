@@ -5,6 +5,7 @@
 import { Router } from "express";
 import type { CatalogService } from "../services/catalog.js";
 import type { ProvenanceService } from "../services/provenance.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 export function createCatalogRoutes(
   catalog: CatalogService,
@@ -14,21 +15,21 @@ export function createCatalogRoutes(
   const router = Router();
 
   // Well-known entry point
-  router.get("/.well-known/hyprcat", async (req, res) => {
+  router.get("/.well-known/hyprcat", asyncHandler(async (req, res) => {
     const resource = await catalog.getResource(`${baseUrl}/.well-known/hyprcat`);
     if (!resource) return res.status(404).json({ "@type": "hypr:NotFound" });
     res.json(resource);
-  });
+  }));
 
   // Root API documentation
-  router.get("/", async (req, res) => {
+  router.get("/", asyncHandler(async (req, res) => {
     const resource = await catalog.getResource(`${baseUrl}/`);
     if (!resource) return res.status(404).json({ "@type": "hypr:NotFound" });
     res.json(resource);
-  });
+  }));
 
   // Main catalog with search support
-  router.get("/catalog", async (req, res) => {
+  router.get("/catalog", asyncHandler(async (req, res) => {
     const { q, type, domain, page, pageSize } = req.query;
     const startTime = Date.now();
 
@@ -62,25 +63,25 @@ export function createCatalogRoutes(
       res.json(resource);
     }
 
-    // Record provenance
+    // Record provenance (fire-and-forget)
     if (req.agentDid) {
-      await provenance.recordActivity(req.agentDid, {
+      provenance.recordActivity(req.agentDid, {
         label: "Catalog Browse",
         actionType: "schema:SearchAction",
         targetUrl: `${baseUrl}/catalog`,
         method: "GET",
         statusCode: 200,
         duration: Date.now() - startTime,
-      });
+      }).catch((err) => console.error("[provenance] catalog browse failed:", err.message));
     }
-  });
+  }));
 
   // Get prompts collection
-  router.get("/prompts", async (req, res) => {
+  router.get("/prompts", asyncHandler(async (req, res) => {
     const resource = await catalog.getResource(`${baseUrl}/prompts`);
     if (!resource) return res.status(404).json({ "@type": "hypr:NotFound" });
     res.json(resource);
-  });
+  }));
 
   return router;
 }

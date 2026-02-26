@@ -21,6 +21,7 @@ export class FileStorage implements StorageProvider {
   private walletDir: string;
   private sessionDir: string;
   private initialized = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor(baseDir: string = "./data") {
     this.baseDir = path.resolve(baseDir);
@@ -30,14 +31,19 @@ export class FileStorage implements StorageProvider {
     this.sessionDir = path.join(this.baseDir, "sessions");
   }
 
-  /** Ensure all directories exist */
+  /** Ensure all directories exist (safe against concurrent calls) */
   private async ensureInit(): Promise<void> {
     if (this.initialized) return;
-    await fs.mkdir(this.resourceDir, { recursive: true });
-    await fs.mkdir(this.provenanceDir, { recursive: true });
-    await fs.mkdir(this.walletDir, { recursive: true });
-    await fs.mkdir(this.sessionDir, { recursive: true });
-    this.initialized = true;
+    if (!this.initPromise) {
+      this.initPromise = (async () => {
+        await fs.mkdir(this.resourceDir, { recursive: true });
+        await fs.mkdir(this.provenanceDir, { recursive: true });
+        await fs.mkdir(this.walletDir, { recursive: true });
+        await fs.mkdir(this.sessionDir, { recursive: true });
+        this.initialized = true;
+      })();
+    }
+    await this.initPromise;
   }
 
   /** Write JSON atomically using a temp file */

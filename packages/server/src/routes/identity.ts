@@ -9,6 +9,7 @@ import {
   verifyAuthResponse,
   createJWT,
 } from "../crypto.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 export function createIdentityRoutes(storage: StorageProvider, baseUrl: string): Router {
   const router = Router();
@@ -30,7 +31,7 @@ export function createIdentityRoutes(storage: StorageProvider, baseUrl: string):
   });
 
   // ─── DID-Auth Verify (exchange signed challenge for JWT) ─────────
-  router.post("/auth/verify", async (req, res) => {
+  router.post("/auth/verify", asyncHandler(async (req, res) => {
     const { did, signature, nonce } = req.body;
 
     if (!did || !signature || !nonce) {
@@ -79,10 +80,10 @@ export function createIdentityRoutes(storage: StorageProvider, baseUrl: string):
       expiresAt: new Date(Date.now() + 3600_000).toISOString(),
       scope: ["read", "write", "execute"],
     });
-  });
+  }));
 
   // ─── Agent Profile ───────────────────────────────────────────────
-  router.get("/auth/profile", async (req, res) => {
+  router.get("/auth/profile", asyncHandler(async (req, res) => {
     if (!req.agentDid) {
       res.status(401).json({
         "@type": "hypr:AuthenticationRequired",
@@ -109,10 +110,10 @@ export function createIdentityRoutes(storage: StorageProvider, baseUrl: string):
           }
         : null,
     });
-  });
+  }));
 
   // ─── Wallet ──────────────────────────────────────────────────────
-  router.get("/wallet", async (req, res) => {
+  router.get("/wallet", asyncHandler(async (req, res) => {
     if (!req.agentDid) {
       res.status(401).json({ "@type": "hypr:AuthenticationRequired" });
       return;
@@ -132,7 +133,7 @@ export function createIdentityRoutes(storage: StorageProvider, baseUrl: string):
       tokens: walletState.tokens,
       subscriptions: walletState.subscriptions,
     });
-  });
+  }));
 
   return router;
 }

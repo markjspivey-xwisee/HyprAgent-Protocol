@@ -51,7 +51,12 @@ export async function createApp(config: ServerConfig): Promise<{
   const provenance = new ProvenanceService(storage);
 
   // Initialize catalog with seed data
-  await catalog.initialize();
+  try {
+    await catalog.initialize();
+  } catch (err) {
+    console.error("[FATAL] Catalog initialization failed:", (err as Error).message);
+    throw err;
+  }
 
   // ─── Global Middleware ────────────────────────────────────────
 
@@ -155,7 +160,9 @@ export async function createApp(config: ServerConfig): Promise<{
         res.removeHeader("Content-Type");
         res.removeHeader("Link");
         res.type("html");
-        res.sendFile(path.resolve(staticDir, "index.html"));
+        res.sendFile(path.resolve(staticDir, "index.html"), (err) => {
+          if (err) next(err);
+        });
       } else {
         next();
       }
